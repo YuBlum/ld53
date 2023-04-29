@@ -1,4 +1,0 @@
-load all the libraries, glfw, opengl, openal.
-open the window, there's not gonna be any dynamic size, there's only gonna be the windowed mode for simplicity.
-renderer: batch? buffered? limit the colors to a small pallete. pixel perfect.
-make sure that the resources are being loaded and that the windows port is stable.
