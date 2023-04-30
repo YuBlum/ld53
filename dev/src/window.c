@@ -1,6 +1,8 @@
+#include <game.h>
 #include <stdio.h>
 #include <glfw3.h>
 #include <config.h>
+#include <renderer.h>
 #include <os_specific.h>
 
 static void  (*glfw_window_hint)(i32 hint, i32 value);
@@ -15,6 +17,7 @@ static i32   (*glfw_get_error)(const i8 **desc);
 static void *(*glfw_get_primary_monitor)(void);
 static void *(*glfw_get_video_mode)(void *monitor);
 static void  (*glfw_set_window_pos)(void *window, i32 xpos, i32 ypos);
+static void *(*glfw_get_proc_address)(const i8 *name);
 
 void
 window_begin(void) {
@@ -36,6 +39,7 @@ window_begin(void) {
 	glfw_get_primary_monitor  = lib_function(glfw, "glfwGetPrimaryMonitor");
 	glfw_get_video_mode       = lib_function(glfw, "glfwGetVideoMode");
 	glfw_set_window_pos       = lib_function(glfw, "glfwSetWindowPos");
+	glfw_get_proc_address     = lib_function(glfw, "glfwGetProcAddress");
 	/* open window */
 	if (!glfw_init()) {
 		const i8 *error;
@@ -60,10 +64,16 @@ window_begin(void) {
 	glfw_set_window_pos(window, (vidmode->width >> 1) - (WINDOW_WIDTH >> 1), (vidmode->height >> 1) - (WINDOW_HEIGHT >> 1));
 	glfw_make_context_current(window);
 	/* game loop */
+	renderer_begin(glfw_get_proc_address);
+	game_begin();
 	while (!glfw_window_should_close(window)) {
+		game_update();
+		renderer_update();
 		glfw_poll_events();
 		glfw_swap_buffers(window);
 	}
+	game_end();
+	renderer_end();
 	/* close glfw */
 	glfw_terminate();
 	lib_close(glfw);

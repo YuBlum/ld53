@@ -40,3 +40,9 @@ void
 lib_close(void *lib) {
 	dlclose(lib);
 }
+
+i8 *
+resource_path(const i8 *name) {
+	sprintf(temp_path, "%s%s", bin_path, name);
+	return temp_path;
+}

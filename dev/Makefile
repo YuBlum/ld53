@@ -1,9 +1,9 @@
-EXE=caiu
+EXE=ld53
 CC_LINUX=cc
 LIBS_LINUX=-lm
 FLAGS_LINUX=-I ./include/ -I /usr/include/GLFW/ -I /usr/include/AL/
 CC_WINDOWS=x86_64-w64-mingw32-gcc
-LIBS_WINDOWS=-L/usr/lib/glfw/static/windows -lglfw3 -lm -lgdi32 -lmingwex -lwinmm
+LIBS_WINDOWS=-lm -lgdi32 -lmingwex -lwinmm
 FLAGS_WINDOWS=-I ./include/ -I /usr/include/GLFW/ -I /usr/include/AL/ -I /usr/x86_64-w64-mingw32/include -m64 -mwindows
 CFILES=$(wildcard src/*.c)
 OBJS_LINUX=$(patsubst src/%.c, bin/linux/%.o, $(CFILES))
