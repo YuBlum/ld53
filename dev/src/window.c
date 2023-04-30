@@ -1,7 +1,10 @@
 #include <game.h>
-#include <stdio.h>
+#include <time.h>
 #include <glfw3.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <config.h>
+#include <keyboard.h>
 #include <renderer.h>
 #include <os_specific.h>
 
@@ -19,7 +22,7 @@ static void *(*glfw_get_video_mode)(void *monitor);
 static void  (*glfw_set_window_pos)(void *window, i32 xpos, i32 ypos);
 static void *(*glfw_get_proc_address)(const i8 *name);
 static f64   (*glfw_get_time)(void);
-static b8    run = 1;
+static i32   (*glfw_get_key)(void *, i32);
 
 void
 window_begin(void) {
@@ -43,6 +46,7 @@ window_begin(void) {
 	glfw_set_window_pos       = lib_function(glfw, "glfwSetWindowPos");
 	glfw_get_proc_address     = lib_function(glfw, "glfwGetProcAddress");
 	glfw_get_time             = lib_function(glfw, "glfwGetTime");
+	glfw_get_key              = lib_function(glfw, "glfwGetKey");
 	/* open window */
 	if (!glfw_init()) {
 		const i8 *error;
@@ -67,17 +71,17 @@ window_begin(void) {
 	glfw_set_window_pos(window, (vidmode->width >> 1) - (WINDOW_WIDTH >> 1), (vidmode->height >> 1) - (WINDOW_HEIGHT >> 1));
 	glfw_make_context_current(window);
 	/* game loop */
+	srand(time(NULL));
 	renderer_begin(glfw_get_proc_address);
 	game_begin();
 	f64 previous_time = 0;
-	while (1) {
-		run = !glfw_window_should_close(window);
-		if (!run) break;
+	while (!glfw_window_should_close(window)) {
 		f64 current_time = glfw_get_time();
 		f64 delta_time   = current_time - previous_time;
 		previous_time    = current_time;
+		keyboard_update(window, glfw_get_key);
 		game_update(delta_time);
-		renderer_update(delta_time);
+		renderer_update();
 		glfw_poll_events();
 		glfw_swap_buffers(window);
 	}

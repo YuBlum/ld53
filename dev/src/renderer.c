@@ -108,6 +108,7 @@ static u32 framebuffer_index_buffer;
 
 static u32        atlas;
 static struct v2f one_frame_size;
+static struct v2f half_frame_size;
 
 static struct sprite sprites[SPRITE_CAPACITY];
 static u32           sprites_pool[SPRITE_CAPACITY];
@@ -255,6 +256,7 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 		1.0f / (atlas_header.width  / FRAME_SIZE_PIXELS),
 		1.0f / (atlas_header.height / FRAME_SIZE_PIXELS)
 	);
+	half_frame_size = V2F(one_frame_size.x * 0.5f, one_frame_size.y * 0.5f);
 	gl_gen_textures(1, &atlas);
 	gl_bind_texture(GL_TEXTURE_2D, atlas);
 	gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -314,6 +316,29 @@ renderer_sprite_alloc(struct v2f frame_index, struct v2f frame_size, u32 frame_a
 	sprites[sprite_index].amount = frame_amount;
 	sprites[sprite_index].active = 1;
 	return sprite_index;
+}
+
+void
+renderer_sprite_frame_set(u32 sprite_index, u32 frame) {
+	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
+		fprintf(stderr, "error: trying to change frame of invalid sprite\n");
+		exit(1);
+	}
+	sprites[sprite_index].offset = frame % sprites[sprite_index].amount;
+}
+
+void
+renderer_sprite_update(u32 sprite_index, f64 delta_time) {
+	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
+		fprintf(stderr, "error: trying to update an invalid sprite\n");
+		exit(1);
+	}
+	sprites[sprite_index].timer += delta_time;
+	if (sprites[sprite_index].timer >= sprites[sprite_index].fps) {
+		sprites[sprite_index].timer = 0;
+		sprites[sprite_index].offset++;
+		if (sprites[sprite_index].offset == sprites[sprite_index].amount) sprites[sprite_index].offset = 0;
+	}
 }
 
 void
@@ -417,54 +442,54 @@ renderer_text(struct v2f position, const i8 *format, ...) {
 				vertices,
 				vertices_amount,
 				position,
-				V2F(1, 1),
-				V2F((text[i] - 'a') * one_frame_size.x, 11 * one_frame_size.y),
-				one_frame_size
+				V2F(0.5f, 0.5f),
+				V2F((text[i] - 'a') * half_frame_size.x, 10 * half_frame_size.y),
+				half_frame_size
 			);
 			indices_amount  += 6;
 			vertices_amount += 4;
-			position.x++;
+			position.x += 0.5f;
 		} else if (text[i] >= '+' && text[i] <= '.') {
 			renderer_internal(
 				vertices,
 				vertices_amount,
 				position,
-				V2F(1, 1),
-				V2F((26 + (text[i] - '+')) * one_frame_size.x, 11 * one_frame_size.y),
-				one_frame_size
+				V2F(0.5f, 0.5f),
+				V2F((26 + (text[i] - '+')) * half_frame_size.x, 10 * half_frame_size.y),
+				half_frame_size
 			);
 			indices_amount  += 6;
 			vertices_amount += 4;
-			position.x++;
+			position.x += 0.5f;
 		} else if (text[i] == '!') {
 			renderer_internal(
 				vertices,
 				vertices_amount,
 				position,
-				V2F(1, 1),
-				V2F(30 * one_frame_size.x, 11 * one_frame_size.y),
-				one_frame_size
+				V2F(0.5f, 0.5f),
+				V2F(30 * half_frame_size.x, 10 * half_frame_size.y),
+				half_frame_size
 			);
 			indices_amount  += 6;
 			vertices_amount += 4;
-			position.x++;
+			position.x += 0.5f;
 		} else if (text[i] >= '0' && text[i] <= '9') {
 			renderer_internal(
 				vertices,
 				vertices_amount,
 				position,
-				V2F(1, 1),
-				V2F((text[i] - '0') * one_frame_size.x, 12 * one_frame_size.y),
-				one_frame_size
+				V2F(0.5f, 0.5f),
+				V2F((text[i] - '0') * half_frame_size.x, 11 * half_frame_size.y),
+				half_frame_size
 			);
 			indices_amount  += 6;
 			vertices_amount += 4;
-			position.x++;
+			position.x += 0.5f;
 		} else if (text[i] == ' ') {
-			position.x++;
+			position.x += 0.5f;
 		} else if (text[i] == '\n') {
 			position.x = startx;
-			position.y++;
+			position.y -= 0.5f;
 		} else{
 			fprintf(stderr, "error: trying to render invalid character '%c'\n", text[i]);
 			exit(1);
@@ -480,17 +505,7 @@ renderer_text(struct v2f position, const i8 *format, ...) {
 }
 
 void
-renderer_update(f64 delta_time) {
-	/* update sprites */
-	for (u32 i = 0; i < SPRITE_CAPACITY; i++) {
-		if (!sprites[i].active || sprites[i].amount < 2 || sprites[i].fps == 0) continue;
-		sprites[i].timer += delta_time;
-		if (sprites[i].timer >= sprites[i].fps) {
-			sprites[i].timer = 0;
-			sprites[i].offset++;
-			if (sprites[i].offset == sprites[i].amount) sprites[i].offset = 0;
-		}
-	}
+renderer_update(void) {
 	/* game rendering */
 	can_render = 1;
 	game_draw();
@@ -501,7 +516,7 @@ renderer_update(f64 delta_time) {
 	/* setup for batch submit */
 	gl_bind_framebuffer(GL_FRAMEBUFFER, framebuffer);
 	gl_viewport(0, 0, GAME_WIDTH_PIXELS, GAME_HEIGHT_PIXELS);
-	gl_clear_color(0.5f, 0.1f, 0.2f, 1.0f);
+	gl_clear_color(115.0f / 256.0f, 188.0f / 256.0f, 15.0f / 256.0f, 1.0f);
 	gl_clear(GL_COLOR_BUFFER_BIT);
 	gl_bind_vertex_array(batch_vertex_array);
 	gl_bind_buffer(GL_ARRAY_BUFFER, batch_vertex_buffer);

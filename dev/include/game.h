@@ -2,6 +2,7 @@
 #define __GAME_H__
 
 #include <types.h>
+#include <linear_algebra.h>
 
 void game_begin(void);
 void game_update(f64 delta_time);

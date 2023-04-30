@@ -1,3 +1,4 @@
+#include <math.h>
 #include <camera.h>
 #include <config.h>
 
@@ -6,10 +7,10 @@ struct m4f projview;
 
 void
 camera_setup(void) {
-	const f32 left   = -GAME_WIDTH  * 0.5f;
-	const f32 top    =  GAME_HEIGHT * 0.5f;
-	const f32 right  =  GAME_WIDTH  * 0.5f;
-	const f32 bottom = -GAME_HEIGHT * 0.5f;
+	const f32 left   = floor(-GAME_HEIGHT * 0.5f);
+	const f32 top    = floor( GAME_HEIGHT * 0.5f);
+	const f32 right  = floor( GAME_WIDTH  * 0.5f);
+	const f32 bottom = floor(-GAME_WIDTH  * 0.5f);
 	const f32 far    = 1;
 	const f32 near   = 0;
 	const f32 right_left = 1 / (right - left);
