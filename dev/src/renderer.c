@@ -1,8 +1,10 @@
+#include <game.h>
 #include <GL/gl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <string.h>
 #include <config.h>
 #include <camera.h>
@@ -50,6 +52,8 @@ static void (*gl_bind_framebuffer)(u32, u32);
 static void (*gl_framebuffer_texture_2d)(u32, u32, u32, u32, i32);
 static void (*gl_delete_framebuffers)(i32, const u32 *);
 static void (*gl_viewport)(i32, i32, i32, i32);
+static void (*gl_enable)(u32);
+static void (*gl_blend_func)(u32, u32);
 
 #pragma pack(1)
 struct tga_header {
@@ -68,6 +72,16 @@ struct tga_header {
 };
 #pragma pack()
 
+struct sprite {
+	struct v2f base;
+	struct v2f size;
+	f32        fps;
+	f32        timer;
+	f32        offset;
+	u32        amount;
+	b8         active;
+};
+
 struct vertex {
 	struct v2f position;
 	struct v2f texcoord;
@@ -82,6 +96,9 @@ static u32           batch_index_buffer;
 static struct vertex batch_vertices[VERTEX_CAPACITY];
 static u32           batch_vertices_amount;
 static u32           batch_indices_amount;
+static struct vertex batch_ui_vertices[VERTEX_CAPACITY];
+static u32           batch_ui_vertices_amount;
+static u32           batch_ui_indices_amount;
 
 static u32 framebuffer;
 static u32 framebuffer_texture;
@@ -91,6 +108,13 @@ static u32 framebuffer_index_buffer;
 
 static u32        atlas;
 static struct v2f one_frame_size;
+
+static struct sprite sprites[SPRITE_CAPACITY];
+static u32           sprites_pool[SPRITE_CAPACITY];
+static u32           sprites_pool_amount;
+
+static b8 can_render;
+static b8 is_ui;
 
 static u32
 shader_open(i8 *name, u32 type) {
@@ -186,6 +210,8 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 	gl_framebuffer_texture_2d     = load_func("glFramebufferTexture2D");
 	gl_delete_framebuffers        = load_func("glDeleteFramebuffers");
 	gl_viewport                   = load_func("glViewport");
+	gl_enable                     = load_func("glEnable");
+	gl_blend_func                 = load_func("glBlendFunc");
 	/* shader */
 	basic_shader = shader_program_create("basic");
 	gl_use_program(basic_shader);
@@ -254,12 +280,7 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 	gl_bind_vertex_array(framebuffer_vertex_array);
 	gl_gen_buffers(1, &framebuffer_vertex_buffer);
 	gl_gen_buffers(1, &framebuffer_index_buffer);
-	struct vertex framebuffer_vertices[] = {
-		{ { -1, -1 }, { 0, 0 } },
-		{ {  1, -1 }, { 1, 0 } },
-		{ {  1,  1 }, { 1, 1 } },
-		{ { -1,  1 }, { 0, 1 } }
-	};
+	struct vertex framebuffer_vertices[] = { { { -1, -1 }, { 0, 0 } }, { {  1, -1 }, { 1, 0 } }, { {  1,  1 }, { 1, 1 } }, { { -1,  1 }, { 0, 1 } } };
 	u32 framebuffer_indices[] = { 0, 1, 2, 2, 3, 0 };
 	gl_bind_buffer(GL_ELEMENT_ARRAY_BUFFER, framebuffer_index_buffer);
 	gl_buffer_data(GL_ELEMENT_ARRAY_BUFFER, sizeof (framebuffer_indices), framebuffer_indices, GL_STATIC_DRAW);
@@ -269,45 +290,233 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 	gl_enable_vertex_attrib_array(0);
 	gl_vertex_attrib_pointer(1, 2, GL_FLOAT, GL_FALSE, sizeof (struct vertex), (void *)offsetof(struct vertex, texcoord));
 	gl_enable_vertex_attrib_array(1);
+	/* blending */
+	gl_enable(GL_BLEND);
+	gl_blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	/* sprites */
+	sprites_pool_amount = SPRITE_CAPACITY;
+	for (u32 i = 0; i < SPRITE_CAPACITY; i++) sprites_pool[i] = i;
+}
+
+u32
+renderer_sprite_alloc(struct v2f frame_index, struct v2f frame_size, u32 frame_amount, f32 fps) {
+	if (sprites_pool_amount == 0) {
+		fprintf(stderr, "error: not enough sprites\n");
+		exit(1);
+	}
+	u32 sprite_index             = sprites_pool[--sprites_pool_amount];
+	frame_size                   = V2F(frame_size.x  * one_frame_size.x, frame_size.y  * one_frame_size.y);
+	frame_index                  = V2F(frame_index.x * one_frame_size.x, frame_index.y * one_frame_size.y);
+	sprites[sprite_index]        = (struct sprite) { 0 };
+	sprites[sprite_index].fps    = fps;
+	sprites[sprite_index].base   = frame_index;
+	sprites[sprite_index].size   = frame_size;
+	sprites[sprite_index].amount = frame_amount;
+	sprites[sprite_index].active = 1;
+	return sprite_index;
 }
 
 void
-renderer_draw(struct v2f position, struct v2f size, struct v2f frame_position, struct v2b flip) {
-	frame_position = V2F(frame_position.x * one_frame_size.x, frame_position.y * one_frame_size.y);
-	batch_vertices[batch_vertices_amount + 0].position = V2F(position.x,          position.y         );
-	batch_vertices[batch_vertices_amount + 1].position = V2F(position.x + size.x, position.y         );
-	batch_vertices[batch_vertices_amount + 2].position = V2F(position.x + size.x, position.y + size.y);
-	batch_vertices[batch_vertices_amount + 3].position = V2F(position.x         , position.y + size.y);
-	batch_vertices[batch_vertices_amount + 0].texcoord = V2F(frame_position.x,                    frame_position.y + one_frame_size.y);
-	batch_vertices[batch_vertices_amount + 1].texcoord = V2F(frame_position.x + one_frame_size.x, frame_position.y + one_frame_size.y);
-	batch_vertices[batch_vertices_amount + 2].texcoord = V2F(frame_position.x + one_frame_size.x, frame_position.y                   );
-	batch_vertices[batch_vertices_amount + 3].texcoord = V2F(frame_position.x,                    frame_position.y                   );
+renderer_sprite_free(u32 sprite_index) {
+	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
+		fprintf(stderr, "error: trying to free invalid sprite\n");
+		exit(1);
+	}
+	sprites[sprite_index].active = 0;
+	sprites_pool[sprites_pool_amount++] = sprite_index;
+}
+
+static void
+renderer_internal(struct vertex *vertices, u32 vertices_amount, struct v2f position, struct v2f size, struct v2f frame_position, struct v2f frame_size) {
+	if (!can_render) {
+		fprintf(stderr, "error: rendering can only occur in 'game_draw' or 'game_draw_ui'\n");
+		exit(1);
+	}
+	vertices[vertices_amount + 0].position = V2F(position.x,          position.y         );
+	vertices[vertices_amount + 1].position = V2F(position.x + size.x, position.y         );
+	vertices[vertices_amount + 2].position = V2F(position.x + size.x, position.y + size.y);
+	vertices[vertices_amount + 3].position = V2F(position.x         , position.y + size.y);
+	vertices[vertices_amount + 0].texcoord = V2F(frame_position.x,                frame_position.y + frame_size.y);
+	vertices[vertices_amount + 1].texcoord = V2F(frame_position.x + frame_size.x, frame_position.y + frame_size.y);
+	vertices[vertices_amount + 2].texcoord = V2F(frame_position.x + frame_size.x, frame_position.y               );
+	vertices[vertices_amount + 3].texcoord = V2F(frame_position.x,                frame_position.y               );
+}
+
+void
+renderer_sprite(u32 sprite_index, struct v2f position, struct v2f size, struct v2b flip) {
+	struct vertex *vertices;
+	u32 vertices_amount;
+	if (is_ui) {
+		vertices_amount = batch_ui_vertices_amount;
+		vertices        = batch_ui_vertices;
+	} else {
+		vertices_amount = batch_vertices_amount;
+		vertices        = batch_vertices;
+	}
+	if (vertices_amount >= VERTEX_CAPACITY) {
+		fprintf(stderr, "error: not enough vertices\n");
+		exit(1);
+	}
+	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
+		fprintf(stderr, "error: trying to render invalid sprite\n");
+		exit(1);
+	}
+	renderer_internal(
+		vertices,
+		vertices_amount,
+		position,
+		size,
+		V2F(sprites[sprite_index].base.x + (sprites[sprite_index].offset * one_frame_size.x), sprites[sprite_index].base.y),
+		sprites[sprite_index].size
+	);
 	if (flip.x) {
-		SWAP32(batch_vertices[batch_vertices_amount + 0].texcoord.x, batch_vertices[batch_vertices_amount + 1].texcoord.x);
-		SWAP32(batch_vertices[batch_vertices_amount + 2].texcoord.x, batch_vertices[batch_vertices_amount + 3].texcoord.x);
+		SWAP32(vertices[vertices_amount + 0].texcoord.x, vertices[vertices_amount + 1].texcoord.x);
+		SWAP32(vertices[vertices_amount + 2].texcoord.x, vertices[vertices_amount + 3].texcoord.x);
 	}
 	if (flip.y) {
-		SWAP32(batch_vertices[batch_vertices_amount + 0].texcoord.y, batch_vertices[batch_vertices_amount + 3].texcoord.y);
-		SWAP32(batch_vertices[batch_vertices_amount + 1].texcoord.y, batch_vertices[batch_vertices_amount + 2].texcoord.y);
+		SWAP32(vertices[vertices_amount + 0].texcoord.y, vertices[vertices_amount + 3].texcoord.y);
+		SWAP32(vertices[vertices_amount + 1].texcoord.y, vertices[vertices_amount + 2].texcoord.y);
 	}
-	batch_indices_amount  += 6;
-	batch_vertices_amount += 4;
+	if (is_ui) {
+		batch_ui_indices_amount  += 6;
+		batch_ui_vertices_amount += 4;
+	} else {
+		batch_indices_amount  += 6;
+		batch_vertices_amount += 4;
+	}
 }
 
 void
-renderer_update(void) {
+renderer_text(struct v2f position, const i8 *format, ...) {
+	struct vertex *vertices;
+	u32 vertices_amount;
+	u32 indices_amount;
+	if (is_ui) {
+		vertices_amount = batch_ui_vertices_amount;
+		indices_amount  = batch_ui_indices_amount;
+		vertices        = batch_ui_vertices;
+	} else {
+		vertices_amount = batch_vertices_amount;
+		indices_amount  = batch_indices_amount;
+		vertices        = batch_vertices;
+	}
+	i8 text[256];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(text, 256, format, args);
+	va_end(args);
+	f32 startx = position.x;
+	for (u32 i = 0; i < 256; i++) {
+		if (vertices_amount >= VERTEX_CAPACITY) {
+			fprintf(stderr, "error: not enough vertices\n");
+			exit(1);
+		}
+		if (text[i] == '\0') break;
+		if (text[i] >= 'a' && text[i] <= 'z') {
+			renderer_internal(
+				vertices,
+				vertices_amount,
+				position,
+				V2F(1, 1),
+				V2F((text[i] - 'a') * one_frame_size.x, 11 * one_frame_size.y),
+				one_frame_size
+			);
+			indices_amount  += 6;
+			vertices_amount += 4;
+			position.x++;
+		} else if (text[i] >= '+' && text[i] <= '.') {
+			renderer_internal(
+				vertices,
+				vertices_amount,
+				position,
+				V2F(1, 1),
+				V2F((26 + (text[i] - '+')) * one_frame_size.x, 11 * one_frame_size.y),
+				one_frame_size
+			);
+			indices_amount  += 6;
+			vertices_amount += 4;
+			position.x++;
+		} else if (text[i] == '!') {
+			renderer_internal(
+				vertices,
+				vertices_amount,
+				position,
+				V2F(1, 1),
+				V2F(30 * one_frame_size.x, 11 * one_frame_size.y),
+				one_frame_size
+			);
+			indices_amount  += 6;
+			vertices_amount += 4;
+			position.x++;
+		} else if (text[i] >= '0' && text[i] <= '9') {
+			renderer_internal(
+				vertices,
+				vertices_amount,
+				position,
+				V2F(1, 1),
+				V2F((text[i] - '0') * one_frame_size.x, 12 * one_frame_size.y),
+				one_frame_size
+			);
+			indices_amount  += 6;
+			vertices_amount += 4;
+			position.x++;
+		} else if (text[i] == ' ') {
+			position.x++;
+		} else if (text[i] == '\n') {
+			position.x = startx;
+			position.y++;
+		} else{
+			fprintf(stderr, "error: trying to render invalid character '%c'\n", text[i]);
+			exit(1);
+		}
+	}
+	if (is_ui) {
+		batch_ui_vertices_amount  = vertices_amount;
+		batch_ui_indices_amount   = indices_amount;
+	} else {
+		batch_vertices_amount  = vertices_amount;
+		batch_indices_amount   = indices_amount;
+	}
+}
+
+void
+renderer_update(f64 delta_time) {
+	/* update sprites */
+	for (u32 i = 0; i < SPRITE_CAPACITY; i++) {
+		if (!sprites[i].active || sprites[i].amount < 2 || sprites[i].fps == 0) continue;
+		sprites[i].timer += delta_time;
+		if (sprites[i].timer >= sprites[i].fps) {
+			sprites[i].timer = 0;
+			sprites[i].offset++;
+			if (sprites[i].offset == sprites[i].amount) sprites[i].offset = 0;
+		}
+	}
+	/* game rendering */
+	can_render = 1;
+	game_draw();
+	is_ui = 1;
+	game_draw_ui();
+	is_ui = 0;
+	can_render = 0;
+	/* setup for batch submit */
 	gl_bind_framebuffer(GL_FRAMEBUFFER, framebuffer);
 	gl_viewport(0, 0, GAME_WIDTH_PIXELS, GAME_HEIGHT_PIXELS);
-	renderer_draw(V2F(-0.5f, -0.5f), V2F(1, 1), V2F(0, 0), V2B(0, 0));
 	gl_clear_color(0.5f, 0.1f, 0.2f, 1.0f);
 	gl_clear(GL_COLOR_BUFFER_BIT);
 	gl_bind_vertex_array(batch_vertex_array);
 	gl_bind_buffer(GL_ARRAY_BUFFER, batch_vertex_buffer);
 	gl_bind_texture(GL_TEXTURE_2D, atlas);
-	gl_uniform_matrix4fv(u_projview, 1, 1, (const f32 *)camera_projview().m);
+	/* game batch */
+	gl_uniform_matrix4fv(u_projview, 1, 1, (const f32 *)camera_projview(0).m);
 	gl_buffer_sub_data(GL_ARRAY_BUFFER, 0, sizeof (batch_vertices), batch_vertices);
 	gl_draw_elements(GL_TRIANGLES, batch_indices_amount, GL_UNSIGNED_INT, NULL);
 	batch_indices_amount = batch_vertices_amount = 0;
+	/* ui batch */
+	gl_uniform_matrix4fv(u_projview, 1, 1, (const f32 *)camera_projview(1).m);
+	gl_buffer_sub_data(GL_ARRAY_BUFFER, 0, sizeof (batch_ui_vertices), batch_ui_vertices);
+	gl_draw_elements(GL_TRIANGLES, batch_ui_indices_amount, GL_UNSIGNED_INT, NULL);
+	batch_ui_indices_amount = batch_ui_vertices_amount = 0;
+	/* render framebuffer */
 	gl_bind_framebuffer(GL_FRAMEBUFFER, 0);
 	gl_viewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 	gl_uniform_matrix4fv(u_projview, 1, 1, (const f32 *)M4F_IDENTITY.m);

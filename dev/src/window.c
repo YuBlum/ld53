@@ -18,6 +18,8 @@ static void *(*glfw_get_primary_monitor)(void);
 static void *(*glfw_get_video_mode)(void *monitor);
 static void  (*glfw_set_window_pos)(void *window, i32 xpos, i32 ypos);
 static void *(*glfw_get_proc_address)(const i8 *name);
+static f64   (*glfw_get_time)(void);
+static b8    run = 1;
 
 void
 window_begin(void) {
@@ -40,6 +42,7 @@ window_begin(void) {
 	glfw_get_video_mode       = lib_function(glfw, "glfwGetVideoMode");
 	glfw_set_window_pos       = lib_function(glfw, "glfwSetWindowPos");
 	glfw_get_proc_address     = lib_function(glfw, "glfwGetProcAddress");
+	glfw_get_time             = lib_function(glfw, "glfwGetTime");
 	/* open window */
 	if (!glfw_init()) {
 		const i8 *error;
@@ -66,9 +69,15 @@ window_begin(void) {
 	/* game loop */
 	renderer_begin(glfw_get_proc_address);
 	game_begin();
-	while (!glfw_window_should_close(window)) {
-		game_update();
-		renderer_update();
+	f64 previous_time = 0;
+	while (1) {
+		run = !glfw_window_should_close(window);
+		if (!run) break;
+		f64 current_time = glfw_get_time();
+		f64 delta_time   = current_time - previous_time;
+		previous_time    = current_time;
+		game_update(delta_time);
+		renderer_update(delta_time);
 		glfw_poll_events();
 		glfw_swap_buffers(window);
 	}

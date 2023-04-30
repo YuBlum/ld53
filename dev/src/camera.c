@@ -2,6 +2,7 @@
 #include <config.h>
 
 struct m4f projection;
+struct m4f projview;
 
 void
 camera_setup(void) {
@@ -21,9 +22,10 @@ camera_setup(void) {
 	projection.m[1][3] = -(top   + bottom) * top_bottom;
 	projection.m[2][3] = -(far   + near  ) * far_near;
 	projection.m[3][3] = 1;
+	projview = projection; /* TODO: change this */
 }
 
 struct m4f
-camera_projview(void) {
-	return projection;
+camera_projview(b8 ui) {
+	return ui ? projection : projview;
 }
