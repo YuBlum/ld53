@@ -104,8 +104,7 @@ dungeon_generate(void) {
 			if (i == (DUNGEON_LIMIT - 1) || !dungeon[(i + 1) * DUNGEON_LIMIT + j]) lock |= UP;
 			if (j == 0                   || !dungeon[i * DUNGEON_LIMIT + (j - 1)]) lock |= LEFT;
 			if (j == (DUNGEON_LIMIT - 1) || !dungeon[i * DUNGEON_LIMIT + (j + 1)]) lock |= RIGHT;
-			if (!lock) continue;
-			load_room(V2U(j, i), lock);
+			if (lock) load_room(V2U(j, i), lock);
 			for (u32 k = 0; k < GAME_HEIGHT; k++) {
 				for (u32 l = 0; l < GAME_WIDTH; l++) {
 					if (!blocks[room_index][k * GAME_WIDTH + l].exists) continue;
@@ -128,7 +127,6 @@ struct block *
 dungeon_blocks(struct v2f position) {
 	struct v2u indexv = { floor(position.x + (GAME_WIDTH  >> 1)) / GAME_WIDTH - 1, floor(position.y + (GAME_HEIGHT >> 1) + 1) / GAME_HEIGHT - 1 };
 	u32 index = ( indexv.y * DUNGEON_LIMIT + indexv.x );
-	printf("%u\n", index);
 	if (!dungeon[index]) {
 		fprintf(stderr, "error: trying to get blocks of unexisting room %u\n", index);
 		exit(1);
