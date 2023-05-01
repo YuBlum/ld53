@@ -76,7 +76,7 @@ sound_master_begin(void) {
 	printf("here 1 - 2\n");
 	const i8 *device_name = alc_get_string(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
 	device  = alc_open_device(device_name);
-	printf("here 1 - 3   %s\n", device_name);
+	printf("here 1 - 3   %s  %p\n", device_name, device_name);
 	if (!device) {
 		fprintf(stderr, "error: could not load sound device\n");
 		exit(1);
