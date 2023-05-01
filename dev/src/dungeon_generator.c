@@ -73,7 +73,7 @@ remove_free_room(u32 index) {
 
 struct v2f
 dungeon_generate(void) {
-	rooms  = image_load("rooms.tga");
+	rooms  = image_load("rooms");
 	block_sprite = renderer_sprite_alloc(V2F(0, 4), V2F(1, 1), 16, 0);
 	struct v2u start_room = {
 		rand() % DUNGEON_LIMIT,
@@ -86,7 +86,7 @@ dungeon_generate(void) {
 		u32        index = rand() % free_rooms_amount;
 		struct v2u room  = free_rooms[index];
 		remove_free_room(index);
-		dungeon[room.y * DUNGEON_LIMIT + room.x] = 1;
+		dungeon[room.y * DUNGEON_LIMIT + room.x] = rand() % 2 + 1;
 		free_surrounds(room);
 		load_room(room, 0);
 	}

@@ -225,7 +225,7 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 	gl_vertex_attrib_pointer(1, 2, GL_FLOAT, GL_FALSE, sizeof (struct vertex), (void *)offsetof(struct vertex, texcoord));
 	gl_enable_vertex_attrib_array(1);
 	/* atlas */
-	struct image atlas_image = image_load("atlas.tga");
+	struct image atlas_image = image_load("atlas");
 	one_frame_size = V2F(
 		1.0f / (atlas_image.width  / FRAME_SIZE_PIXELS),
 		1.0f / (atlas_image.height / FRAME_SIZE_PIXELS)

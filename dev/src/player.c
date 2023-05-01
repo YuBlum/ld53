@@ -59,7 +59,7 @@ player_begin(struct v2f start_position, b8 *backpack_active) {
 	hud_heart_empty = renderer_sprite_alloc(V2F( 0,  3), V2F(1, 1), 1, 0);
 	for (u32 i = 0; i < LIFE_LIMIT; i++) {
 		hud_heart_full[i] = renderer_sprite_alloc(V2F(0, 2), V2F(1, 1), 2, 1.25f);
-		renderer_sprite_timer_set(hud_heart_full[i], (LIFE_LIMIT - i) * 0.2f);
+		renderer_sprite_timer_set(hud_heart_full[i], (LIFE_LIMIT - i) * 0.1f);
 	}
 	for (u32 i = 0; i < 2; i++) {
 		sprite_idle[i] = renderer_sprite_alloc(V2F(3 * i, 0), V2F(1, 1), 2, 0.5f);

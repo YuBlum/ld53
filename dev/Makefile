@@ -31,8 +31,9 @@ bin/linux/$(EXE): $(OBJS_LINUX)
 	@echo linking object files into elf...
 	@$(CC_LINUX) $(FLAGS_LINUX) -o bin/linux/$(EXE) $^ $(LIBS_LINUX)
 	@echo updating linux resources...
-	@cp -r data/ shaders/ ../linux/
-	@cp -r libs/linux/ ../linux/libs/
+	@cp data/* ../linux/data/
+	@cp shaders/* ../linux/shaders/
+	@cp libs/linux/* ../linux/libs/
 	@cp bin/linux/$(EXE) ../linux/
 	@echo $(EXE) was succesfully builded for linux!
 
@@ -40,14 +41,19 @@ bin/windows/$(EXE).exe: $(OBJS_WINDOWS)
 	@echo linking object files into exe...
 	@$(CC_WINDOWS) $(FLAGS_WINDOWS) -o bin/windows/$(EXE) $^ $(LIBS_WINDOWS)
 	@echo updating windows resources...
-	@cp -r data/ shaders/ ../windows/
-	@cp -r libs/windows/ ../windows/libs/
+	@cp data/* ../windows/data/
+	@cp shaders/* ../windows/shaders/
+	@cp libs/windows/* ../windows/libs/
 	@cp bin/windows/$(EXE).exe ../windows/
 	@echo $(EXE) was succesfully builded for windows!
 
 res:
-	@cp -r data/ libs/linux/ shaders/ ../linux/
-	@cp -r data/ libs/windows/ shaders/ ../windows/
+	@cp data/* ../windows/data/
+	@cp shaders/* ../windows/shaders/
+	@cp libs/windows/* ../windows/libs/
+	@cp data/* ../linux/data/
+	@cp shaders/* ../linux/shaders/
+	@cp libs/linux/* ../linux/libs/
 	@echo resources updated
 
 
@@ -66,7 +72,6 @@ clean:
 	@rm bin/linux/*
 	@rm bin/windows/*
 	@echo cleaned up binaries!
-	@rm -r ../windows/*
-	@rm -r ../linux/*
+	@rm ../windows/$(EXE).exe  ../windows/shaders/* ../windows/libs/* ../windows/data/* ../linux/$(EXE) ../linux/shaders/* ../linux/libs/* ../linux/data/*
 	@echo cleaned up build!
 

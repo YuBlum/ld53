@@ -25,7 +25,7 @@ struct tga_header {
 struct image
 image_load(const i8 *name) {
 	i8 image_name[256];
-	sprintf(image_name, "data/%s", name);
+	sprintf(image_name, "data/%s.tga", name);
 	i8 *path = resource_path(image_name);
 	FILE *file = fopen(path, "rb");
 	if (!file) {

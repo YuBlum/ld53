@@ -1,4 +1,5 @@
 #include <game.h>
+#include <sound.h>
 #include <stdio.h>
 #include <config.h>
 #include <player.h>
@@ -6,10 +7,16 @@
 #include <renderer.h>
 #include <dungeon_generator.h>
 
+u32 music, music_source;
+
 void
 game_begin(void) {
 	struct v2f start_position = dungeon_generate();
 	player_begin(start_position, backpack_begin(start_position));
+	sound_master_begin();
+	music        = sound_alloc("dungeon");
+	music_source = sound_source_alloc(music, 1);
+	sound_source_play(music_source);
 }
 
 void
@@ -31,5 +38,8 @@ game_draw_ui(void) {
 
 void
 game_end(void) {
+	sound_source_free(music_source);
+	sound_free(music);
+	sound_master_end();
 	dungeon_generator_cleanup();
 }
