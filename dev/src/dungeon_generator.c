@@ -126,8 +126,9 @@ dungeon_generate(void) {
 
 struct block *
 dungeon_blocks(struct v2f position) {
-	struct v2u indexv = { floor(position.x + (GAME_WIDTH  >> 1)) / GAME_WIDTH - 1, floor(position.y + (GAME_HEIGHT >> 1)) / GAME_HEIGHT - 1 };
+	struct v2u indexv = { floor(position.x + (GAME_WIDTH  >> 1)) / GAME_WIDTH - 1, floor(position.y + (GAME_HEIGHT >> 1) + 1) / GAME_HEIGHT - 1 };
 	u32 index = ( indexv.y * DUNGEON_LIMIT + indexv.x );
+	printf("%u\n", index);
 	if (!dungeon[index]) {
 		fprintf(stderr, "error: trying to get blocks of unexisting room %u\n", index);
 		exit(1);
