@@ -1,4 +1,5 @@
 #include <al.h>
+#include <alc.h>
 #include <sound.h>
 #include <types.h>
 #include <errno.h>
@@ -33,6 +34,7 @@ static b8    (*alc_close_device)(void *);
 static void  (*alc_destroy_context)(void *);
 static b8    (*alc_make_context_current)(void *);
 static u32   (*alc_get_error)(void *);
+static i8   *(*alc_get_string)(void *, u32);
 static void  (*al_gen_buffers)(i32, u32 *);
 static void  (*al_delete_buffers)(i32, u32 *);
 static void  (*al_gen_sources)(i32, u32 *);
@@ -61,6 +63,7 @@ sound_master_begin(void) {
 	alc_create_context       = lib_function(openal, "alcCreateContext");
 	alc_make_context_current = lib_function(openal, "alcMakeContextCurrent");
 	alc_get_error            = lib_function(openal, "alcGetError");
+	alc_get_string           = lib_function(openal, "alcGetString");
 	al_gen_buffers           = lib_function(openal, "alGenBuffers");
 	al_delete_buffers        = lib_function(openal, "alDeleteBuffers");
 	al_gen_sources           = lib_function(openal, "alGenSources");
@@ -71,8 +74,9 @@ sound_master_begin(void) {
 	al_source_play           = lib_function(openal, "alSourcePlay");
 	al_source_stop           = lib_function(openal, "alSourceStop");
 	printf("here 1 - 2\n");
-	device  = alc_open_device(NULL);
-	printf("here 1 - 3\n");
+	const i8 *device_name = alc_get_string(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+	device  = alc_open_device(device_name);
+	printf("here 1 - 3   %s\n", device_name);
 	if (!device) {
 		fprintf(stderr, "error: could not load sound device\n");
 		exit(1);
