@@ -13,11 +13,14 @@ void
 game_begin(void) {
 	struct v2f start_position = dungeon_generate();
 	player_begin(start_position, backpack_begin(start_position));
+	printf("here 1\n");
 	sound_master_begin();
+	printf("here 2\n");
 	music        = sound_alloc("dungeon");
 	music_source = sound_source_alloc(music, 1);
 	sound_source_play(music_source);
 	sound_source_gain(music_source, 0.5f);
+	printf("here 3\n");
 }
 
 void

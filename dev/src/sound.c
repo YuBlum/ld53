@@ -48,11 +48,13 @@ static void *context;
 
 void
 sound_master_begin(void) {
+	printf("here 1 - 0\n");
 #ifdef LINUX
 	void *openal = lib_open("libopenal.so");
 #else
 	void *openal = lib_open("OpenAL32.dll");
 #endif
+	printf("here 1 - 1\n");
 	alc_open_device          = lib_function(openal, "alcOpenDevice");
 	alc_close_device         = lib_function(openal, "alcCloseDevice");
 	alc_destroy_context      = lib_function(openal, "alcDestroyContext");
@@ -68,17 +70,23 @@ sound_master_begin(void) {
 	al_sourcef               = lib_function(openal, "alSourcef");
 	al_source_play           = lib_function(openal, "alSourcePlay");
 	al_source_stop           = lib_function(openal, "alSourceStop");
+	printf("here 1 - 2\n");
 	device  = alc_open_device(NULL);
+	printf("here 1 - 3\n");
 	if (!device) {
 		fprintf(stderr, "error: could not load sound device\n");
 		exit(1);
 	}
+	printf("here 1 - 4\n");
 	context = alc_create_context(device, NULL);
+	printf("here 1 - 5\n");
 	alc_make_context_current(context);
+	printf("here 1 - 6\n");
 }
 
 u32
 sound_alloc(const i8 *name) {
+	printf("here 1 - 0\n");
 	i8 sound_name[256];
 	sprintf(sound_name, "data/%s.wav", name);
 	i8 *path = resource_path(sound_name);
@@ -90,12 +98,17 @@ sound_alloc(const i8 *name) {
 	struct wav_header header;
 	fread(&header, 1, sizeof (header), file);
 	u8 *data = malloc(header.data_size);
+	printf("here 1 - 1\n");
 	fread(data, 1, header.data_size, file);
 	fclose(file);
 	u32 sound;
+	printf("here 1 - 2\n");
 	al_gen_buffers(1, &sound);
+	printf("here 1 - 3\n");
 	al_buffer_data(sound, AL_FORMAT_STEREO16, data, header.data_size, header.fmt_sample_rate);
+	printf("here 1 - 4\n");
 	free(data);
+	printf("here 1 - 5\n");
 	return sound;
 }
 
