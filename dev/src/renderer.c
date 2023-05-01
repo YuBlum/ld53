@@ -302,6 +302,15 @@ renderer_sprite_frame_set(u32 sprite_index, u32 frame) {
 }
 
 void
+renderer_sprite_timer_set(u32 sprite_index, f32 value) {
+	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
+		fprintf(stderr, "error: trying to change frame of invalid sprite\n");
+		exit(1);
+	}
+	sprites[sprite_index].timer = value;
+}
+
+void
 renderer_sprite_update(u32 sprite_index, f64 delta_time) {
 	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
 		fprintf(stderr, "error: trying to update an invalid sprite\n");

@@ -14,14 +14,11 @@
 #define ROOMS_AMOUNT 5
 #define DUNGEON_LIMIT 5
 
-static const f32    pixel = 1.0f / FRAME_SIZE_PIXELS;
-static u32          square1;
-static u32          square2;
 static u32          dungeon[DUNGEON_LIMIT * DUNGEON_LIMIT];
 static u32          free_rooms_amount;
 static struct v2u   free_rooms[DUNGEON_LIMIT * DUNGEON_LIMIT];
 static struct image rooms;
-static struct block blocks[DUNGEON_LIMIT * DUNGEON_LIMIT][GAME_WIDTH * GAME_HEIGHT];
+static struct block blocks[DUNGEON_LIMIT * DUNGEON_LIMIT][CAMERA_WIDTH * CAMERA_HEIGHT];
 static u32          block_sprite;
 
 static void
@@ -31,20 +28,20 @@ load_room(struct v2u room, u8 lock) {
 		fprintf(stderr, "error: trying to load invalid room\n");
 		exit(1);
 	}
-	u32 index = lock ? 0 : dungeon[room_index] * GAME_HEIGHT;
-	struct v2f offset = { room.x * GAME_WIDTH + (GAME_WIDTH >> 1), room.y * GAME_HEIGHT + (GAME_HEIGHT >> 1) };
-	for (u32 i = 0; i < GAME_HEIGHT; i++) {
-		for (u32 j = 0; j < GAME_WIDTH; j++) {
+	u32 index = lock ? 0 : dungeon[room_index] * CAMERA_HEIGHT;
+	struct v2f offset = { room.x * CAMERA_WIDTH + (CAMERA_WIDTH >> 1), room.y * CAMERA_HEIGHT + (CAMERA_HEIGHT >> 1) - 1 };
+	for (u32 i = 0; i < CAMERA_HEIGHT; i++) {
+		for (u32 j = 0; j < CAMERA_WIDTH; j++) {
 			u32 pixel = rooms.pixels[(i + index) * GAME_WIDTH + j];
 			if (lock) {
 				if (!(lock & LEFT)  && j == 0)               continue;
-				if (!(lock & RIGHT) && j == GAME_WIDTH  - 1) continue;
+				if (!(lock & RIGHT) && j == CAMERA_WIDTH  - 1) continue;
 				if (!(lock & UP)    && i == 0)               continue;
-				if (!(lock & DOWN)  && i == GAME_HEIGHT - 1) continue;
+				if (!(lock & DOWN)  && i == CAMERA_HEIGHT - 1) continue;
 			}
 			if (pixel == 0xffffffff) {
-				blocks[room_index][i * GAME_WIDTH + j].exists   = 1;
-				blocks[room_index][i * GAME_WIDTH + j].position = V2F(offset.x + j, offset.y + (GAME_HEIGHT - 1) - i);
+				blocks[room_index][i * CAMERA_WIDTH + j].exists   = 1;
+				blocks[room_index][i * CAMERA_WIDTH + j].position = V2F(offset.x + j, offset.y + (CAMERA_HEIGHT - 1) - i);
 			}
 		}
 	}
@@ -77,8 +74,6 @@ remove_free_room(u32 index) {
 struct v2f
 dungeon_generate(void) {
 	rooms  = image_load("rooms.tga");
-	square1 = renderer_sprite_alloc(V2F(15, 15), V2F(1, 1), 1, 0);
-	square2 = renderer_sprite_alloc(V2F(14, 15), V2F(1, 1), 1, 0);
 	block_sprite = renderer_sprite_alloc(V2F(0, 4), V2F(1, 1), 16, 0);
 	struct v2u start_room = {
 		rand() % DUNGEON_LIMIT,
@@ -105,27 +100,27 @@ dungeon_generate(void) {
 			if (j == 0                   || !dungeon[i * DUNGEON_LIMIT + (j - 1)]) lock |= LEFT;
 			if (j == (DUNGEON_LIMIT - 1) || !dungeon[i * DUNGEON_LIMIT + (j + 1)]) lock |= RIGHT;
 			if (lock) load_room(V2U(j, i), lock);
-			for (u32 k = 0; k < GAME_HEIGHT; k++) {
-				for (u32 l = 0; l < GAME_WIDTH; l++) {
-					if (!blocks[room_index][k * GAME_WIDTH + l].exists) continue;
-					if (k > 0 && blocks[room_index][(k - 1) * GAME_WIDTH + l].exists) {
-						blocks[room_index][(k - 1) * GAME_WIDTH + l].col_mask |= DOWN;
-						blocks[room_index][k * GAME_WIDTH + l].col_mask       |= UP;
+			for (u32 k = 0; k < CAMERA_HEIGHT; k++) {
+				for (u32 l = 0; l < CAMERA_WIDTH; l++) {
+					if (!blocks[room_index][k * CAMERA_WIDTH + l].exists) continue;
+					if (k > 0 && blocks[room_index][(k - 1) * CAMERA_WIDTH + l].exists) {
+						blocks[room_index][(k - 1) * CAMERA_WIDTH + l].col_mask |= DOWN;
+						blocks[room_index][k * CAMERA_WIDTH + l].col_mask       |= UP;
 					}
-					if (l > 0 && blocks[room_index][k * GAME_WIDTH + (l - 1)].exists) {
-						blocks[room_index][k * GAME_WIDTH + (l - 1)].col_mask |= RIGHT;
-						blocks[room_index][k * GAME_WIDTH + l].col_mask       |= LEFT;
+					if (l > 0 && blocks[room_index][k * CAMERA_WIDTH + (l - 1)].exists) {
+						blocks[room_index][k * CAMERA_WIDTH + (l - 1)].col_mask |= RIGHT;
+						blocks[room_index][k * CAMERA_WIDTH + l].col_mask       |= LEFT;
 					}
 				}
 			}
 		}
 	}
-	return V2F(start_room.x * GAME_WIDTH + GAME_WIDTH, start_room.y * GAME_HEIGHT + GAME_HEIGHT - 1);
+	return V2F(start_room.x * CAMERA_WIDTH + CAMERA_WIDTH, start_room.y * CAMERA_HEIGHT + CAMERA_HEIGHT - 1);
 }
 
 struct block *
 dungeon_blocks(struct v2f position) {
-	struct v2u indexv = { floor(position.x + (GAME_WIDTH  >> 1)) / GAME_WIDTH - 1, floor(position.y + (GAME_HEIGHT >> 1) + 1) / GAME_HEIGHT - 1 };
+	struct v2u indexv = { floor(position.x + (CAMERA_WIDTH  >> 1)) / CAMERA_WIDTH - 1, floor(position.y + (CAMERA_HEIGHT >> 1) + 1) / CAMERA_HEIGHT - 1 };
 	u32 index = ( indexv.y * DUNGEON_LIMIT + indexv.x );
 	if (!dungeon[index]) {
 		fprintf(stderr, "error: trying to get blocks of unexisting room %u\n", index);
@@ -135,21 +130,9 @@ dungeon_blocks(struct v2f position) {
 }
 
 void
-dungeon_debug(void) {
-	struct v2f offset = { 0, 0 };
-	f32 size = pixel * 2;
-	for (u32 i = 0; i < DUNGEON_LIMIT; i++) {
-		for (u32 j = 0; j < DUNGEON_LIMIT; j++) {
-			u32 square = dungeon[i * DUNGEON_LIMIT + j] ? square1 : square2;
-			renderer_sprite(square, V2F(offset.x + (j * size), offset.y + (i * size)), V2F(size, size), V2B(0, 0));
-		}
-	}
-}
-
-void
 dungeon_draw(void) {
 	for (u32 i = 0; i < DUNGEON_LIMIT * DUNGEON_LIMIT; i++) {
-		for (u32 j = 0; j < GAME_WIDTH * GAME_HEIGHT; j++) {
+		for (u32 j = 0; j < CAMERA_WIDTH * CAMERA_HEIGHT; j++) {
 			if (!blocks[i][j].exists) continue;
 			renderer_sprite_frame_set(block_sprite, blocks[i][j].col_mask);
 			renderer_sprite(block_sprite, blocks[i][j].position, V2F(1, 1), V2B(0, 0));

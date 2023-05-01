@@ -1,13 +1,15 @@
 #include <game.h>
 #include <stdio.h>
-#include <player.h>
 #include <config.h>
+#include <player.h>
+#include <backpack.h>
 #include <renderer.h>
 #include <dungeon_generator.h>
 
 void
 game_begin(void) {
-	player_begin(dungeon_generate());
+	struct v2f start_position = dungeon_generate();
+	player_begin(start_position, backpack_begin(start_position));
 }
 
 void
@@ -17,13 +19,14 @@ game_update(f64 delta_time) {
 
 void
 game_draw(void) {
-	player_draw();
 	dungeon_draw();
+	backpack_draw();
+	player_draw();
 }
 
 void
 game_draw_ui(void) {
-	/*dungeon_debug();*/
+	player_hud();
 }
 
 void
