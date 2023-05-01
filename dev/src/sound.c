@@ -114,6 +114,11 @@ sound_source_alloc(u32 sound, b8 loop) {
 }
 
 void
+sound_source_gain(u32 source, f32 gain) {
+	al_sourcef(source, AL_GAIN, gain);
+}
+
+void
 sound_source_play(u32 source) {
 	al_source_play(source);
 }

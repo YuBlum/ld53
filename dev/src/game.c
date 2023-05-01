@@ -17,6 +17,7 @@ game_begin(void) {
 	music        = sound_alloc("dungeon");
 	music_source = sound_source_alloc(music, 1);
 	sound_source_play(music_source);
+	sound_source_gain(music_source, 0.5f);
 }
 
 void
