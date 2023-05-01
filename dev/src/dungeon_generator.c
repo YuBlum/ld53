@@ -11,8 +11,8 @@
 #include <linear_algebra.h>
 #include <dungeon_generator.h>
 
-#define ROOMS_AMOUNT 5
-#define DUNGEON_LIMIT 5
+#define ROOMS_AMOUNT 20
+#define DUNGEON_LIMIT 10
 
 static u32          dungeon[DUNGEON_LIMIT * DUNGEON_LIMIT];
 static u32          free_rooms_amount;
@@ -135,7 +135,7 @@ dungeon_draw(void) {
 		for (u32 j = 0; j < CAMERA_WIDTH * CAMERA_HEIGHT; j++) {
 			if (!blocks[i][j].exists) continue;
 			renderer_sprite_frame_set(block_sprite, blocks[i][j].col_mask);
-			renderer_sprite(block_sprite, blocks[i][j].position, V2F(1, 1), V2B(0, 0));
+			renderer_sprite(block_sprite, blocks[i][j].position, V2F(1, 1), V2B(0, 0), 0);
 		}
 	}
 }

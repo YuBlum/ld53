@@ -1,12 +1,13 @@
 #include <glfw3.h>
 #include <keyboard.h>
 
-#define KEYS_AMOUNT 4
+#define KEYS_AMOUNT 5
 static i32 keymap[KEYS_AMOUNT] = {
 	GLFW_KEY_W,
 	GLFW_KEY_A,
 	GLFW_KEY_S,
-	GLFW_KEY_D
+	GLFW_KEY_D,
+	GLFW_KEY_ENTER
 };
 
 static u8  keys;
@@ -31,6 +32,7 @@ keyboard_click(u8 key) {
 
 b8
 keyboard_down(u8 key) {
+	if (keyboard_click(key)) return 1;
 	if (timer > 0) return 0;
 	return (keys & key) == key;
 }

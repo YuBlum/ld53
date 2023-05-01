@@ -20,5 +20,5 @@ backpack_position_get(void) {
 void
 backpack_draw(void) {
 	if (!active) return;
-	renderer_sprite(sprite, position, V2F(1, 1), V2B(0, 0));
+	renderer_sprite(sprite, position, V2F(1, 1), V2B(0, 0), 0);
 }

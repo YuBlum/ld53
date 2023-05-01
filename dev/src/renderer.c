@@ -351,7 +351,7 @@ renderer_internal(struct vertex *vertices, u32 vertices_amount, struct v2f posit
 }
 
 void
-renderer_sprite(u32 sprite_index, struct v2f position, struct v2f size, struct v2b flip) {
+renderer_sprite(u32 sprite_index, struct v2f position, struct v2f size, struct v2b flip, b8 rot90) {
 	struct vertex *vertices;
 	u32 vertices_amount;
 	if (is_ui) {
@@ -384,6 +384,12 @@ renderer_sprite(u32 sprite_index, struct v2f position, struct v2f size, struct v
 	if (flip.y) {
 		SWAP32(vertices[vertices_amount + 0].texcoord.y, vertices[vertices_amount + 3].texcoord.y);
 		SWAP32(vertices[vertices_amount + 1].texcoord.y, vertices[vertices_amount + 2].texcoord.y);
+	}
+	if (rot90) {
+		vertices[vertices_amount + 0].texcoord.y = vertices[vertices_amount + 3].texcoord.y;
+		vertices[vertices_amount + 1].texcoord.x = vertices[vertices_amount + 0].texcoord.x;
+		vertices[vertices_amount + 2].texcoord.y = vertices[vertices_amount + 1].texcoord.y;
+		vertices[vertices_amount + 3].texcoord.x = vertices[vertices_amount + 2].texcoord.x;
 	}
 	if (is_ui) {
 		batch_ui_indices_amount  += 6;
