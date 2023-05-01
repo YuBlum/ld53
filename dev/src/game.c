@@ -4,7 +4,7 @@
 #include <renderer.h>
 #include <dungeon_generator.h>
 
-static struct { struct v2f position; u8 col_mask; b8 exists; } blocks[GAME_WIDTH * GAME_HEIGHT];
+static struct block blocks[GAME_WIDTH * GAME_HEIGHT];
 static u32 block_sprite;
 
 void
@@ -14,9 +14,9 @@ game_begin(void) {
 	block_sprite = renderer_sprite_alloc(V2F(0, 4), V2F(1, 1), 16, 0);
 	i8 test_map[] =
 		"###....###"
-		"#..####..#"
-		"#..####..#"
-		"...####..."
+		"#........#"
+		"#........#"
+		".........."
 		".........."
 		".........."
 		"#........#"
@@ -43,7 +43,7 @@ game_begin(void) {
 
 void
 game_update(f64 delta_time) {
-	player_update(delta_time);
+	player_update(delta_time, blocks);
 }
 
 void
