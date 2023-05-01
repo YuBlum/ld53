@@ -12,6 +12,7 @@
 #include <GL/glext.h>
 #include <os_specific.h>
 #include <math_helper.h>
+#include <image_loader.h>
 #include <linear_algebra.h>
 
 static void (*gl_clear_color)(f32, f32, f32, f32);
@@ -54,23 +55,6 @@ static void (*gl_delete_framebuffers)(i32, const u32 *);
 static void (*gl_viewport)(i32, i32, i32, i32);
 static void (*gl_enable)(u32);
 static void (*gl_blend_func)(u32, u32);
-
-#pragma pack(1)
-struct tga_header {
-	u8  id_length;
-	u8  color_map_type;
-	u8  image_type;
-	u16 color_map_origin;
-	u16 color_map_length;
-	u8  color_map_depth;
-	u16 x;
-	u16 y;
-	u16 width;
-	u16 height;
-	u8  bpp;
-	u8  image_descriptor;
-};
-#pragma pack()
 
 struct sprite {
 	struct v2f base;
@@ -241,28 +225,18 @@ renderer_begin(void *(*load_func)(const i8 *name)) {
 	gl_vertex_attrib_pointer(1, 2, GL_FLOAT, GL_FALSE, sizeof (struct vertex), (void *)offsetof(struct vertex, texcoord));
 	gl_enable_vertex_attrib_array(1);
 	/* atlas */
-	FILE *atlas_file = fopen(resource_path("data/atlas.tga"), "rb");
-	if (!atlas_file) {
-		fprintf(stderr, "error: could not open atlas: %s", strerror(errno));
-	}
-	struct tga_header atlas_header;
-	fread(&atlas_header, 1, sizeof (atlas_header), atlas_file);
-	fseek(atlas_file, atlas_header.id_length, SEEK_CUR);
-	u32 pixels_amount = atlas_header.width * atlas_header.height;
-	u8 *pixels = malloc(sizeof (u32) * pixels_amount);
-	fread(pixels, sizeof (u32), pixels_amount, atlas_file);
-	fclose(atlas_file);
+	struct image atlas_image = image_load("atlas.tga");
 	one_frame_size = V2F(
-		1.0f / (atlas_header.width  / FRAME_SIZE_PIXELS),
-		1.0f / (atlas_header.height / FRAME_SIZE_PIXELS)
+		1.0f / (atlas_image.width  / FRAME_SIZE_PIXELS),
+		1.0f / (atlas_image.height / FRAME_SIZE_PIXELS)
 	);
 	half_frame_size = V2F(one_frame_size.x * 0.5f, one_frame_size.y * 0.5f);
 	gl_gen_textures(1, &atlas);
 	gl_bind_texture(GL_TEXTURE_2D, atlas);
 	gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	gl_tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, atlas_header.width, atlas_header.height, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
-	free(pixels);
+	gl_tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, atlas_image.width, atlas_image.height, 0, GL_BGRA, GL_UNSIGNED_BYTE, atlas_image.pixels);
+	free(atlas_image.pixels);
 	/* uniforms */
 	u_projview = gl_get_uniform_location(basic_shader, "projview");
 	/* camera */

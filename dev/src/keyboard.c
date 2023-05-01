@@ -9,16 +9,19 @@ static i32 keymap[KEYS_AMOUNT] = {
 	GLFW_KEY_D
 };
 
-u8 keys;
-u8 keys_prev;
+static u8  keys;
+static u8  keys_prev;
+static f32 timer;
 
 void
-keyboard_update(void *window, i32 (*glfw_get_key)(void *, i32)) {
+keyboard_update(void *window, i32 (*glfw_get_key)(void *, i32), f64 delta_time) {
 	keys_prev = keys;
 	for (u32 i = 0; i < KEYS_AMOUNT; i++) {
-		if (glfw_get_key(window, keymap[i]) == GLFW_PRESS) keys |= 1 << i;
+		if (glfw_get_key(window, keymap[i]) == GLFW_PRESS) keys |=   1 << i;
 		else                                               keys &= ~(1 << i);
 	}
+	if (timer > 0) timer -= delta_time;
+	else           timer  = 0.25f;
 }
 
 b8
@@ -28,5 +31,6 @@ keyboard_click(u8 key) {
 
 b8
 keyboard_down(u8 key) {
+	if (timer > 0) return 0;
 	return (keys & key) == key;
 }

@@ -7,6 +7,7 @@
 #include <renderer.h>
 #include <math_helper.h>
 #include <linear_algebra.h>
+#include <dungeon_generator.h>
 
 #define DIR_STOP  0
 #define DIR_UP    1
@@ -32,35 +33,41 @@ static b8         flip;
 static f32        time;
 
 void
-player_begin(void) {
+player_begin(struct v2f start_position) {
 	sprite_idle    = renderer_sprite_alloc(V2F(0, 0), V2F(1, 1), 2, 0.5f);
 	sprite_walk    = renderer_sprite_alloc(V2F(0, 1), V2F(1, 1), 3, 0);
 	sprite_current = sprite_idle;
+	position       = start_position;
+	camera         = V2F(
+		floor((position.x + (GAME_WIDTH  >> 1)) / GAME_WIDTH)  * GAME_WIDTH,
+		floor((position.y + (GAME_HEIGHT >> 1) + 1) / GAME_HEIGHT) * GAME_HEIGHT
+	);;
 	position_next  = position;
 }
 
 void
-player_update(f64 delta_time, struct block blocks[GAME_WIDTH * GAME_HEIGHT]) {
+player_update(f64 delta_time) {
 	/* movement */
 	time += delta_time;
 	if (position.x == position_next.x && position.y == position_next.y && walk_timer == 0) {
 		if (camera_timer == 0) {
 			position_prev = position;
-			if (keyboard_click(RIGHT) || input_buffer == DIR_RIGHT) {
+			if (keyboard_down(RIGHT) || input_buffer == DIR_RIGHT) {
 				input_buffer = DIR_STOP;
 				position_next.x++;
 				flip = 0;
-			} else if (keyboard_click(LEFT) || input_buffer == DIR_LEFT) {
+			} else if (keyboard_down(LEFT) || input_buffer == DIR_LEFT) {
 				input_buffer = DIR_STOP;
 				position_next.x--;
 				flip = 1;
-			} else if (keyboard_click(UP) || input_buffer == DIR_UP) {
+			} else if (keyboard_down(UP) || input_buffer == DIR_UP) {
 				input_buffer = DIR_STOP;
 				position_next.y++;
-			} else if (keyboard_click(DOWN) || input_buffer == DIR_DOWN) {
+			} else if (keyboard_down(DOWN) || input_buffer == DIR_DOWN) {
 				input_buffer = DIR_STOP;
 				position_next.y--;
 			}
+			struct block *blocks = dungeon_blocks(position);
 			for (u32 i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
 				if (!blocks[i].exists) continue;
 				if (position_next.x == blocks[i].position.x && position_next.y == blocks[i].position.y) {
@@ -76,10 +83,10 @@ player_update(f64 delta_time, struct block blocks[GAME_WIDTH * GAME_HEIGHT]) {
 		position.y = lerp(position_prev.y, position_next.y, walk_timer);
 		u32 frame = lerp(0, 3, walk_timer);
 		if (frame < 3) renderer_sprite_frame_set(sprite_walk, frame);
-		if (keyboard_click(RIGHT)) input_buffer = DIR_RIGHT;
-		if (keyboard_click(LEFT))  input_buffer = DIR_LEFT;
-		if (keyboard_click(UP))    input_buffer = DIR_UP;
-		if (keyboard_click(DOWN))  input_buffer = DIR_DOWN;
+		if (keyboard_down(RIGHT)) input_buffer = DIR_RIGHT;
+		if (keyboard_down(LEFT))  input_buffer = DIR_LEFT;
+		if (keyboard_down(UP))    input_buffer = DIR_UP;
+		if (keyboard_down(DOWN))  input_buffer = DIR_DOWN;
 	} else {
 		sprite_current = sprite_idle;
 		walk_timer = 0;

@@ -5,5 +5,5 @@ load all the libraries:
 
 open the window, there's not gonna be any dynamic size, there's only gonna be the windowed mode for simplicity. done
 renderer: batch? buffered? limit the colors to a small pallete. pixel perfect. done.
-keyboard input.
+keyboard input. done
 make sure that the resources are being loaded and that the windows port is stable.

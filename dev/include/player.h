@@ -5,8 +5,8 @@
 #include <types.h>
 #include <config.h>
 
-void player_begin(void);
-void player_update(f64 delta_time, struct block blocks[GAME_WIDTH * GAME_HEIGHT]);
+void player_begin(struct v2f start_position);
+void player_update(f64 delta_time);
 void player_draw(void);
 
 #endif/*__PLAYER_H__*/

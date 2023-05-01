@@ -79,7 +79,7 @@ window_begin(void) {
 		f64 current_time = glfw_get_time();
 		f64 delta_time   = current_time - previous_time;
 		previous_time    = current_time;
-		keyboard_update(window, glfw_get_key);
+		keyboard_update(window, glfw_get_key, delta_time);
 		game_update(delta_time);
 		renderer_update();
 		glfw_poll_events();
