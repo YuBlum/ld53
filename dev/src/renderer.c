@@ -63,6 +63,7 @@ struct sprite {
 	f32        timer;
 	f32        offset;
 	u32        amount;
+	b8         pingpong;
 	b8         active;
 };
 
@@ -311,7 +312,7 @@ renderer_sprite_timer_set(u32 sprite_index, f32 value) {
 }
 
 void
-renderer_sprite_update(u32 sprite_index, f64 delta_time) {
+renderer_sprite_update(u32 sprite_index, f64 delta_time, b8 pingpong) {
 	if (sprite_index >= SPRITE_CAPACITY || !sprites[sprite_index].active) {
 		fprintf(stderr, "error: trying to update an invalid sprite\n");
 		exit(1);
@@ -319,8 +320,19 @@ renderer_sprite_update(u32 sprite_index, f64 delta_time) {
 	sprites[sprite_index].timer += delta_time;
 	if (sprites[sprite_index].timer >= sprites[sprite_index].fps) {
 		sprites[sprite_index].timer = 0;
-		sprites[sprite_index].offset++;
-		if (sprites[sprite_index].offset == sprites[sprite_index].amount) sprites[sprite_index].offset = 0;
+		if (sprites[sprite_index].pingpong) {
+			sprites[sprite_index].offset--;
+			if (sprites[sprite_index].offset == 0) sprites[sprite_index].pingpong = 0;
+		} else {
+			sprites[sprite_index].offset++;
+			if (sprites[sprite_index].offset == sprites[sprite_index].amount) {
+				if (pingpong) {
+					sprites[sprite_index].pingpong = 1;
+					sprites[sprite_index].offset = sprites[sprite_index].amount - 2;
+				}
+				else sprites[sprite_index].offset = 0;
+			}
+		}
 	}
 }
 
@@ -494,13 +506,18 @@ renderer_text(struct v2f position, const i8 *format, ...) {
 }
 
 void
-renderer_update(void) {
+renderer_update(b8 in_menu) {
 	/* game rendering */
 	can_render = 1;
-	game_draw();
-	is_ui = 1;
-	game_draw_ui();
-	is_ui = 0;
+	if (in_menu) {
+		is_ui = 1;
+		menu_draw();
+	} else {
+		is_ui = 0;
+		game_draw();
+		is_ui = 1;
+		game_draw_ui();
+	}
 	can_render = 0;
 	/* setup for batch submit */
 	gl_bind_framebuffer(GL_FRAMEBUFFER, framebuffer);

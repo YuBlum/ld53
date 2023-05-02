@@ -1,7 +1,9 @@
 #include <math.h>
 #include <stdio.h>
+#include <sound.h>
 #include <player.h>
 #include <config.h>
+#include <zombie.h>
 #include <camera.h>
 #include <keyboard.h>
 #include <renderer.h>
@@ -10,13 +12,8 @@
 #include <linear_algebra.h>
 #include <dungeon_generator.h>
 
-#define DIR_STOP  0
-#define DIR_UP    1
-#define DIR_LEFT  2
-#define DIR_DOWN  3
-#define DIR_RIGHT 4
-
-#define LIFE_LIMIT 6
+#define LIFE_LIMIT   6
+#define LIFE_INITIAL 3
 
 static struct v2f       fire_position;
 static struct v2f       fire_direction;
@@ -24,8 +21,13 @@ static const f32        fire_speed = 8;
 static b8               fire_flip;
 static b8               fire_rot90;
 static b8               fire_active;
+static u32              fire_sound;
+static u32              fire_source;
+static u32              fire_destroy_sound;
+static u32              fire_destroy_source;
+static u32              hit_sound;
+static u32              hit_source;
 static u32              fire;
-static u32              life_max = 3;
 static u32              life;
 static u32              hud_bg;
 static u32              hud_heart_full[LIFE_LIMIT];
@@ -38,6 +40,7 @@ static b8              *backpack;
 static struct v2f       position = { -1, -1 };
 static struct v2f       position_next;
 static struct v2f       position_prev;
+static struct v2f       position_start;
 static struct v2f       camera;
 static struct v2f       camera_next;
 static struct v2f       camera_prev;
@@ -48,15 +51,18 @@ static const f32        walk_timer_inc = 3.25f;
 static u32              input_buffer;
 static u32              direction = DIR_RIGHT;
 static b8               flip;
-static f32              time;
+static b8               show = 1;
+static f32              invincible_timer;
+static struct v2f       ladder;
 static const struct v2f top_left  = { -GAME_WIDTH >> 1,      (GAME_HEIGHT >> 1) - 1 };
 static const struct v2f top_right = { (GAME_WIDTH >> 1) - 1, (GAME_HEIGHT >> 1) - 1 };
 
 void
-player_begin(struct v2f start_position, b8 *backpack_active) {
+player_begin(struct v2f start_position, struct v2f ladder_position, b8 *backpack_active) {
 	hud_bg          = renderer_sprite_alloc(V2F(15, 15), V2F(1, 1), 1, 0);
 	hud_backpack    = renderer_sprite_alloc(V2F( 2,  2), V2F(1, 1), 1, 0);
 	hud_heart_empty = renderer_sprite_alloc(V2F( 0,  3), V2F(1, 1), 1, 0);
+	ladder = ladder_position;
 	for (u32 i = 0; i < LIFE_LIMIT; i++) {
 		hud_heart_full[i] = renderer_sprite_alloc(V2F(0, 2), V2F(1, 1), 2, 1.25f);
 		renderer_sprite_timer_set(hud_heart_full[i], (LIFE_LIMIT - i) * 0.1f);
@@ -65,22 +71,31 @@ player_begin(struct v2f start_position, b8 *backpack_active) {
 		sprite_idle[i] = renderer_sprite_alloc(V2F(3 * i, 0), V2F(1, 1), 2, 0.5f);
 		sprite_walk[i] = renderer_sprite_alloc(V2F(3 * i, 1), V2F(1, 1), 3, 0);
 	}
-	fire = renderer_sprite_alloc(V2F(5, 0), V2F(1, 1), 2, 0.1f);
+	fire                = renderer_sprite_alloc(V2F(5, 0), V2F(1, 1), 2, 0.1f);
+	fire_sound          = sound_alloc("shoot");
+	fire_source         = sound_source_alloc(fire_sound, 0);
+	fire_destroy_sound  = sound_alloc("explosion");
+	fire_destroy_source = sound_source_alloc(fire_destroy_sound, 0);
+	hit_sound           = sound_alloc("hurt");
+	hit_source          = sound_source_alloc(hit_sound, 0);
+	sound_source_gain(fire_source, 0.8f);
+	sound_source_gain(fire_destroy_source, 0.8f);
+	sound_source_gain(hit_source, 0.8f);
 	backpack       = backpack_active;
 	sprite_current = sprite_idle[!(*backpack)];
-	position       = start_position;
+	position_start = start_position;
+	position       = position_start;
+	position_next  = position;
+	life           = LIFE_INITIAL;
 	camera         = V2F(
 		floor((position.x + (CAMERA_WIDTH  >> 1))     / CAMERA_WIDTH)  * CAMERA_WIDTH,
 		floor((position.y + (CAMERA_HEIGHT >> 1) + 1) / CAMERA_HEIGHT) * CAMERA_HEIGHT
 	);
-	position_next = position;
-	life          = life_max;
 }
 
-void
+b8
 player_update(f64 delta_time) {
 	/* movement */
-	time += delta_time;
 	if (position.x == position_next.x && position.y == position_next.y && walk_timer == 0) {
 		sprite_current = sprite_idle[!(*backpack)];
 		if (camera_timer == 0) {
@@ -104,16 +119,21 @@ player_update(f64 delta_time) {
 				direction    = DIR_DOWN;
 				position_next.y--;
 			}
-			struct block *blocks = dungeon_blocks(position);
+			struct block *blocks = dungeon_blocks(position_next);
 			for (u32 i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
 				if (!blocks[i].exists) continue;
 				if (position_next.x == blocks[i].position.x && position_next.y == blocks[i].position.y) {
 					position_next = position;
+					break;
 				}
 			}
+			/* end game */
+			if (collided(position, V2F(1, 1), ladder, V2F(2, 2))) {
+				if (!(*backpack)) return 0;
+			}
 		}
-		if (keyboard_down(ATTACK) && !fire_active) {
-				fire_position = position;
+		if (keyboard_down(ATTACK) && !fire_active && invincible_timer <= 0) {
+			fire_position = position;
 			switch (direction) {
 				case DIR_RIGHT:
 					fire_direction = V2F(1, 0);
@@ -137,8 +157,9 @@ player_update(f64 delta_time) {
 					break;
 			}
 			fire_active = 1;
+			sound_source_play(fire_source);
 		}
-		renderer_sprite_update(sprite_current, delta_time);
+		renderer_sprite_update(sprite_current, delta_time, 0);
 	} else if (walk_timer < 1) {
 		sprite_current = sprite_walk[!(*backpack)];
 		walk_timer += walk_timer_inc * delta_time;
@@ -177,29 +198,89 @@ player_update(f64 delta_time) {
 		camera_timer = 0;
 		camera       = camera_next;
 		camera_prev  = camera;
+		printf("%u %u\n", (u32)(camera.x / CAMERA_WIDTH) - 1, (u32)(camera.y / CAMERA_HEIGHT) - 1);
 	}
 	camera_move(camera);
 	/* hearts update */
 	for (u32 i = 0; i < LIFE_LIMIT; i++) {
-		renderer_sprite_update(hud_heart_full[i], delta_time);
+		renderer_sprite_update(hud_heart_full[i], delta_time, 0);
+	}
+	struct zombie *zombies = dungeon_zombies(position);
+	/* get hit */
+	if (invincible_timer > 0) {
+		invincible_timer -= delta_time;
+		show = !show;
+	} else {
+		show = 1;
+	}
+	for (u32 i = 0; i < ENTITIES_MAX_PER_ROOM && invincible_timer <= 0; i++) {
+		if (!zombies[i].active) continue;
+		if (collided(position, V2F(1, 1), zombies[i].position, V2F(1, 1))) {
+			life--;
+			if (life == 0) {
+				if (!(*backpack)) {
+					*backpack = 1;
+					backpack_position_set(position_prev);
+				}
+				position       = position_start;
+				position_next  = position;
+				position_prev  = position;
+				life           = LIFE_INITIAL;
+				camera         = V2F(
+					floor((position.x + (CAMERA_WIDTH  >> 1))     / CAMERA_WIDTH)  * CAMERA_WIDTH,
+					floor((position.y + (CAMERA_HEIGHT >> 1) + 1) / CAMERA_HEIGHT) * CAMERA_HEIGHT
+				);
+				dungeon_ressurect_zombies();
+				printf("game over\n");
+			} else {
+				invincible_timer = 1;
+			}
+			sound_source_play(hit_source);
+		}
 	}
 	/* fire update */
 	if (fire_active) {
-		if (!collided(
+		for (u32 i = 0; i < ENTITIES_MAX_PER_ROOM; i++) {
+			if (!zombies[i].active) continue;
+			if (collided(fire_position, V2F(1, 1), zombies[i].position, V2F(1, 1))) {
+				dungeon_kill_zombie(zombies[i].position, i);
+				fire_active = 0;
+				sound_source_play(fire_destroy_source);
+			}
+		}
+		if (fire_active && !collided(
 			fire_position,
 			V2F(1, 1),
 			V2F(camera.x - (CAMERA_WIDTH >> 1) + 1, camera.y - (CAMERA_HEIGHT >> 1)),
 			V2F(CAMERA_WIDTH - 2, CAMERA_HEIGHT - 2)
-		)) fire_active = 0;
+		)) {
+			fire_active = 0;
+			sound_source_play(fire_destroy_source);
+		}
 		struct block *blocks = dungeon_blocks(position);
 		for (u32 i = 0; i < GAME_WIDTH * GAME_HEIGHT && fire_active; i++) {
 			if (!blocks[i].exists) continue;
-			if (collided(fire_position, V2F(1, 1), blocks[i].position, V2F(1, 1))) fire_active = 0;
+			if (collided(fire_position, V2F(1, 1), blocks[i].position, V2F(1, 1))) {
+				fire_active = 0;
+				sound_source_play(fire_destroy_source);
+			}
 		}
 		fire_position.x += fire_direction.x * fire_speed * delta_time;
 		fire_position.y += fire_direction.y * fire_speed * delta_time;
-		renderer_sprite_update(fire, delta_time);
+		renderer_sprite_update(fire, delta_time, 0);
 	}
+	/* update dungeon */
+	dungeon_room_update(position_next, delta_time);
+	/* get heart */
+	struct heart *hearts = dungeon_hearts(position_next);
+	for (u32 i = 0; i < ENTITIES_MAX_PER_ROOM && life < LIFE_LIMIT; i++) {
+		if (!hearts[i].active) continue;
+		if (position_next.x == hearts[i].position.x && position_next.y == hearts[i].position.y) {
+			life++;
+			hearts[i].active = 0;
+		}
+	}
+	return 1;
 }
 
 void
@@ -207,14 +288,25 @@ player_draw(void) {
 	if (fire_active) {
 		renderer_sprite(fire, fire_position, V2F(1, 1), V2B(fire_flip, 0), fire_rot90);
 	}
-	renderer_sprite(sprite_current, position, V2F(1, 1), V2B(flip, 0), 0);
+	if (show) renderer_sprite(sprite_current, position, V2F(1, 1), V2B(flip, 0), 0);
 }
 
 void
 player_hud(void) {
 	renderer_sprite(hud_bg, top_left, V2F(HUD_WIDTH, HUD_HEIGHT), V2B(0, 0), 0);
-	for (u32 i = 0; i < life_max; i++) {
+	for (u32 i = 0; i < LIFE_LIMIT; i++) {
 		renderer_sprite(i < life ? hud_heart_full[i] : hud_heart_empty, V2F(top_left.x + i, top_left.y), V2F(1, 1), V2B(0, 0), 0);
 	}
 	if (!(*backpack)) renderer_sprite(hud_backpack, top_right, V2F(1, 1), V2B(0, 0), 0);
 }
+
+void
+player_end(void) {
+	sound_source_free(fire_source);
+	sound_free(fire_sound);
+	sound_source_free(fire_destroy_source);
+	sound_free(fire_destroy_sound);
+	sound_source_free(hit_source);
+	sound_free(hit_sound);
+}
+

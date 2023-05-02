@@ -13,6 +13,7 @@ static i32 keymap[KEYS_AMOUNT] = {
 static u8  keys;
 static u8  keys_prev;
 static f32 timer;
+static f32 delay;
 
 void
 keyboard_update(void *window, i32 (*glfw_get_key)(void *, i32), f64 delta_time) {
@@ -23,10 +24,17 @@ keyboard_update(void *window, i32 (*glfw_get_key)(void *, i32), f64 delta_time) 
 	}
 	if (timer > 0) timer -= delta_time;
 	else           timer  = 0.25f;
+	if (delay > 0) delay -= delta_time;
+}
+
+void
+keyboard_delay_set(f32 new_delay) {
+	delay = new_delay;
 }
 
 b8
 keyboard_click(u8 key) {
+	if (delay > 0) return 0;
 	return (keys & key) == key && (keys_prev & key) != key;
 }
 

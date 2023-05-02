@@ -1,3 +1,6 @@
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
+
 #define FRAME_SIZE_PIXELS  16
 #define GAME_WIDTH_PIXELS  160
 #define GAME_HEIGHT_PIXELS 144
@@ -25,3 +28,16 @@
 #define SPRITE_CAPACITY 32
 
 #define BLOCKS_CAPACITY 32
+
+#define ENTITIES_MAX_PER_ROOM 4
+
+enum {
+	DIR_STOP = 0,
+	DIR_UP,
+	DIR_LEFT,
+	DIR_DOWN,
+	DIR_RIGHT,
+	DIR_COUNT
+};
+
+#endif/*__CONFIG_H__*/

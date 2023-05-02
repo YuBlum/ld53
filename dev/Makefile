@@ -1,4 +1,4 @@
-EXE=ld53
+EXE=deliverydungeon
 CC_LINUX=cc
 LIBS_LINUX=-lm
 FLAGS_LINUX=-I ./include/ -I /usr/include/GLFW/ -I /usr/include/AL/

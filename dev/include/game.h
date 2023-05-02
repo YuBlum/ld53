@@ -4,12 +4,11 @@
 #include <types.h>
 #include <linear_algebra.h>
 
-struct block {
-	struct v2f position;
-	u8 col_mask;
-	b8 exists;
-};
 
+void menu_begin(void);
+b8   menu_update(f64 delta_time);
+void menu_draw(void);
+void menu_end(void);
 void game_begin(void);
 void game_update(f64 delta_time);
 void game_draw(void);
